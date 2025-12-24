@@ -8,7 +8,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 
 # --- Architectural Configuration ---
 st.set_page_config(page_title="Saqr Grade Monitor", page_icon="🛡️", layout="wide")
@@ -57,23 +56,27 @@ def notify(msg):
             st.error(f"Notification failure: {e}")
 
 def initialize_headless_driver():
-    """Configures a headless Chrome instance for server-side scraping."""
+    """Configures a headless Chrome instance using system binaries for Streamlit Cloud."""
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
+    # Point to the system-installed Chromium binary
+    options.binary_location = "/usr/bin/chromium"
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    service = Service(ChromeDriverManager().install())
+    # Use the system-installed chromedriver directly
+    service = Service("/usr/bin/chromedriver")
     return webdriver.Chrome(service=service, options=options)
 
 def run_extraction_cycle():
     """Executes authentication, navigation, and data extraction sequence."""
-    driver = initialize_headless_driver()
-    wait = WebDriverWait(driver, 25)
-    
+    driver = None
     try:
+        driver = initialize_headless_driver()
+        wait = WebDriverWait(driver, 25)
+        
         # Step 1: Portal Authentication
         driver.get("https://login.psau.edu.sa/login")
         
@@ -86,7 +89,7 @@ def run_extraction_cycle():
         login_btn.click()
         
         # Step 2: Navigate to Target Sub-page
-        time.sleep(4) # Buffer for session establishment
+        time.sleep(5) # Buffer for session establishment
         driver.get("https://eserve.psau.edu.sa/ku/ui/student/homeIndex.faces")
         
         # Step 3: XPath Value Extraction
@@ -98,7 +101,8 @@ def run_extraction_cycle():
     except Exception as e:
         return f"Operational Failure: {str(e)}"
     finally:
-        driver.quit()
+        if driver:
+            driver.quit()
 
 # --- Dashboard Layout ---
 
