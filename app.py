@@ -75,28 +75,43 @@ def run_extraction_cycle():
     driver = None
     try:
         driver = initialize_headless_driver()
-        wait = WebDriverWait(driver, 25)
+        wait = WebDriverWait(driver, 30)
         
         # Step 1: Portal Authentication
         driver.get("https://login.psau.edu.sa/login")
         
-        user_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#username")))
-        pass_field = driver.find_element(By.CSS_SELECTOR, "#password")
-        login_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-        
-        user_field.send_keys(portal_user)
-        pass_field.send_keys(portal_pass)
-        login_btn.click()
+        try:
+            user_field = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#username")))
+            pass_field = driver.find_element(By.CSS_SELECTOR, "#password")
+            login_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+            
+            user_field.send_keys(portal_user)
+            pass_field.send_keys(portal_pass)
+            login_btn.click()
+        except Exception:
+            return "Operational Failure: Timeout during Login form detection."
         
         # Step 2: Navigate to Target Sub-page
-        time.sleep(5) # Buffer for session establishment
+        time.sleep(7) # Increased buffer for PSAU session establishment
         driver.get("https://eserve.psau.edu.sa/ku/ui/student/homeIndex.faces")
         
-        # Step 3: XPath Value Extraction
-        target_element = wait.until(EC.presence_of_element_located((By.XPATH, grade_xpath)))
-        extracted_value = target_element.text.strip()
+        # Step 3: Handle potential Iframes (Common in University Portals)
+        # We try to detect if we need to switch to a frame
+        try:
+            frames = driver.find_elements(By.TAG_NAME, "iframe")
+            if frames:
+                # Often the first frame contains the actual content
+                driver.switch_to.frame(0)
+        except Exception:
+            pass # Continue if no frames found
         
-        return extracted_value
+        # Step 4: XPath Value Extraction
+        try:
+            target_element = wait.until(EC.presence_of_element_located((By.XPATH, grade_xpath)))
+            extracted_value = target_element.text.strip()
+            return extracted_value
+        except Exception:
+            return "Operational Failure: Could not locate grade element. Target XPath might have changed or is hidden."
 
     except Exception as e:
         return f"Operational Failure: {str(e)}"
